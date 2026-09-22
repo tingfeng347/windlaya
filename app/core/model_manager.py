@@ -12,6 +12,7 @@ from app.core.errors import (
     ModelLoadError,
     ModelUnavailableError,
 )
+from app.core.model_artifacts import ArtifactProvider, ModelArtifactProvider
 
 MODEL_CATALOG: tuple[dict[str, Any], ...] = (
     {"id": "auto", "description": "Automatically route by language"},
@@ -47,10 +48,12 @@ class ModelManager:
         self,
         settings: Settings,
         router_factory: Callable[..., Any] = _laya_router_factory,
+        artifact_provider: ArtifactProvider | None = None,
     ) -> None:
         self.settings = settings
         self.device = resolve_device(settings.device)
         self._router_factory = router_factory
+        self._artifact_provider = artifact_provider or ModelArtifactProvider(settings)
         self._router: Any | None = None
         self._inference_lock = Lock()
 
@@ -60,6 +63,7 @@ class ModelManager:
             return
         token = self.settings.hf_token.get_secret_value() if self.settings.hf_token else None
         router = self._router_factory(
+            models=self._artifact_provider.router_models(),
             device=self.device,
             token=token,
             max_loaded=self.settings.max_loaded,
@@ -70,6 +74,7 @@ class ModelManager:
         if not self.settings.preload_models:
             return
         try:
+            self._artifact_provider.require(self.settings.preload_models)
             router.preload(list(self.settings.preload_models))
             for name in self.settings.preload_models:
                 self._verify_agent_device(name, router.load(name))
@@ -121,6 +126,7 @@ class ModelManager:
             decision = self.route(state, questions, model=normalized, lang=lang)
             selected = str(decision["model"])
             try:
+                self._artifact_provider.require((selected,))
                 agent = router.load(selected)
                 self._verify_agent_device(selected, agent)
             except ModelLoadError:
@@ -128,7 +134,7 @@ class ModelManager:
             except Exception as exc:
                 raise ModelLoadError(
                     f"Failed to load Laya checkpoint {selected!r}. "
-                    "Check network and cache configuration."
+                    "Check local artifact and device configuration."
                 ) from exc
 
             try:

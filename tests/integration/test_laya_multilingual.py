@@ -9,7 +9,7 @@ pytestmark = [
     pytest.mark.integration,
     pytest.mark.skipif(
         os.getenv("WINDLAYA_RUN_MODEL_TESTS", "false").lower() != "true",
-        reason="set WINDLAYA_RUN_MODEL_TESTS=true to download and run checkpoints",
+        reason="prepare checkpoints and set WINDLAYA_RUN_MODEL_TESTS=true",
     ),
 ]
 

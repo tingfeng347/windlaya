@@ -14,6 +14,9 @@ def test_settings_normalize_model_aliases_and_reject_an_impossible_cache() -> No
 
     assert settings.preload_models == ("english", "multilingual")
     assert settings.default_model == "multilingual"
+    assert settings.model_source == "modelscope"
+    assert settings.model_fallback_source == "huggingface"
+    assert str(settings.model_root) == "models"
 
     with pytest.raises(ValidationError, match="max_loaded"):
         Settings(preload_models="english,multilingual", max_loaded=1, _env_file=None)

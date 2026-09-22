@@ -2,7 +2,7 @@ from app.core.config import Settings
 from app.core.model_manager import ModelManager
 from app.schemas.decision import DecisionRequest
 from app.services.decision_service import DecisionService
-from tests.fakes import FakeRouter
+from tests.fakes import FakeArtifactProvider, FakeRouter
 
 
 def test_predict_publishes_the_stable_windlaya_envelope() -> None:
@@ -10,6 +10,7 @@ def test_predict_publishes_the_stable_windlaya_envelope() -> None:
     manager = ModelManager(
         Settings(device="cpu", preload_models="", _env_file=None),
         router_factory=lambda **_: router,
+        artifact_provider=FakeArtifactProvider(),
     )
     manager.startup()
     times = iter((10.0, 10.025))

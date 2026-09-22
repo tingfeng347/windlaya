@@ -3,13 +3,17 @@ from fastapi.testclient import TestClient
 from app.core.config import Settings
 from app.core.model_manager import ModelManager
 from app.main import create_app
-from tests.fakes import FakeRouter
+from tests.fakes import FakeArtifactProvider, FakeRouter
 
 
 def test_http_api_exposes_the_complete_offline_success_path() -> None:
     fake_router = FakeRouter(device="cpu")
     settings = Settings(device="cpu", preload_models="", _env_file=None)
-    manager = ModelManager(settings, router_factory=lambda **_: fake_router)
+    manager = ModelManager(
+        settings,
+        router_factory=lambda **_: fake_router,
+        artifact_provider=FakeArtifactProvider(),
+    )
     app = create_app(settings=settings, model_manager=manager)
     payload = {
         "state": "我需要退款",
@@ -59,7 +63,11 @@ def test_http_api_uses_one_safe_error_envelope() -> None:
             return super().route(*args, **kwargs)
 
     settings = Settings(device="cpu", preload_models="", _env_file=None)
-    manager = ModelManager(settings, router_factory=lambda **_: BrokenRouter(device="cpu"))
+    manager = ModelManager(
+        settings,
+        router_factory=lambda **_: BrokenRouter(device="cpu"),
+        artifact_provider=FakeArtifactProvider(),
+    )
     app = create_app(settings=settings, model_manager=manager)
     payload = {
         "state": "hello",

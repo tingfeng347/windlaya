@@ -1,10 +1,13 @@
-.PHONY: install run test test-all lint smoke
+.PHONY: install models run test test-all lint smoke
 
 install:
 	uv sync
 
+models:
+	uv run windlaya-models download
+
 run:
-	uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+	uv run windlaya
 
 test:
 	uv run pytest tests/unit -q

@@ -1,6 +1,21 @@
 from typing import Any
 
 
+class FakeArtifactProvider:
+    def __init__(self) -> None:
+        self.required: list[tuple[str, ...]] = []
+
+    def router_models(self) -> dict[str, str]:
+        return {
+            "english": "/fake/english",
+            "multilingual": "/fake/multilingual",
+            "typed-decisions": "/fake/typed-decisions",
+        }
+
+    def require(self, names: Any) -> None:
+        self.required.append(tuple(names))
+
+
 class FakeAgent:
     def __init__(self, device: str = "cpu") -> None:
         self.device = device

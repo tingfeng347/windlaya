@@ -10,6 +10,7 @@ COPY app ./app
 RUN uv sync --frozen --no-dev --no-editable
 
 ENV PATH="/app/.venv/bin:$PATH"
+ENV WINDLAYA_MODEL_ROOT="/models"
 
 EXPOSE 8000
 

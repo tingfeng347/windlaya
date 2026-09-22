@@ -1,5 +1,6 @@
 """Application settings and model-name normalization."""
 
+from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field, SecretStr, field_validator, model_validator
@@ -7,6 +8,9 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 ModelName = Literal["english", "multilingual", "typed-decisions"]
 DeviceName = Literal["auto", "cuda", "cpu", "mps"]
+ModelSource = Literal["modelscope", "huggingface", "local"]
+FallbackSource = Literal["huggingface", "none"]
+MODEL_NAMES: tuple[ModelName, ...] = ("english", "multilingual", "typed-decisions")
 
 MODEL_ALIASES: dict[str, ModelName] = {
     "english": "english",
@@ -72,7 +76,11 @@ class Settings(BaseSettings):
     preload_models: Annotated[tuple[ModelName, ...], NoDecode] = ("multilingual",)
     max_loaded: int = Field(default=2, ge=1)
     default_model: ModelName = "english"
+    model_source: ModelSource = "modelscope"
+    model_fallback_source: FallbackSource = "huggingface"
+    model_root: Path = Path("models")
     hf_token: SecretStr | None = None
+    ms_token: SecretStr | None = None
     log_level: Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"] = "INFO"
     run_model_tests: bool = False
     serialize_inference: bool = True
