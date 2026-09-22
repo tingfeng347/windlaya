@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Local multilingual Laya System-1 Decision API"
 readme = "README.md"
 authors = [
-    { name = "qiaojingbo", email = "3152912378@qq.com" }
+    { name = "tingfeng347", email = "3152912378@qq.com" }
 ]
 requires-python = ">=3.12,<3.13"
 license = "Apache-2.0"
