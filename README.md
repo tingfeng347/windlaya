@@ -9,6 +9,7 @@ Multilingual checkpoint，也允许调用方显式选择模型。
 - 中文、英文、日文、德文及其他多语言自动路由
 - `auto`、`english`、`multilingual`、`typed-decisions` 四种模型模式
 - CPU、CUDA、MPS 设备选择
+- ModelScope 主源、Hugging Face 备选和本地 checkpoint 完整性校验
 - checkpoint 预加载、LRU 常驻上限和进程内串行保护
 - Request ID、统一错误信封和 OpenAPI 文档
 - 完全离线的单元测试与显式启用的真实模型测试
@@ -34,13 +35,14 @@ API 层不直接接触 Laya。进程中只有一个 `ModelManager` 和一个 `Ro
 
 别名包括 `en`、`laya`、`multi`、`ml`、`typed` 和 `typed_decisions`。响应始终返回标准名。
 `typed-decisions` 不是 English 的高级版本，也不会被 `auto` 静默选中。
-Laya Router 可能从等价的 bundle repo subfolder 加载权重，API 模型目录保持使用 standalone ID。
+模型在部署阶段下载为三个独立的本地目录，再通过 Laya Router 的 `models` 参数注入。
 
 ## 环境要求
 
 - Python 3.12
 - uv 0.12 或更高版本
-- 首次运行所需的 Hugging Face 网络访问，或已经准备好的本地 cache
+- 部署阶段所需的 ModelScope 或 Hugging Face 网络访问
+- 运行阶段已经准备并校验的本地 checkpoint
 - 可选 CUDA 或 MPS；CPU 始终受支持
 
 ## 安装
@@ -48,10 +50,29 @@ Laya Router 可能从等价的 bundle repo subfolder 加载权重，API 模型�
 ```bash
 uv sync
 cp .env.example .env
+uv run windlaya-models download
 ```
 
-依赖由 `uv.lock` 固定。第一次加载 checkpoint 会下载权重，之后复用 Hugging Face cache。
-可通过 `HF_HOME=/path/to/cache` 改变缓存位置。
+依赖由 `uv.lock` 固定。下载命令默认从 ModelScope 获取三个固定 revision；如果 ModelScope
+不可用，则从固定的 Hugging Face revision 重试。两种来源都必须通过项目内置的 Hugging Face
+文件 manifest 校验，成功后才原子发布到 `models/`。服务启动和请求处理不会下载模型。
+
+只准备部分模型时可重复指定 `--model`：
+
+```bash
+uv run windlaya-models download --model multilingual
+```
+
+未准备的模型仍会出现在模型目录中，但显式请求它时会返回加载错误。生产部署建议执行不带
+`--model` 的完整下载，使 English 和 typed-decisions 能从本地磁盘热加载。
+
+人工准备或内部制品库分发的目录也必须使用同一 manifest 验收并发布 marker：
+
+```bash
+uv run windlaya-models verify --root /path/to/models --publish-marker
+```
+
+目录结构必须是 `/path/to/models/{english,multilingual,typed-decisions}`。
 
 ## 启动
 
@@ -64,11 +85,30 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 本机服务模式：
 
 ```bash
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+uv run windlaya
 ```
 
-不要增加多个 worker。默认 `device=auto` 且只预加载 Multilingual；首次显式选择 English
-或 typed-decisions 时，Laya Router 会动态热加载对应 checkpoint。需要时可明确使用 CPU：
+监听地址和端口通过 `WINDLAYA_HOST`、`WINDLAYA_PORT` 设置。在 Windows 和 macOS 上应使用
+`uv run windlaya`：它会先检查 PyTorch 设备并预加载配置的 checkpoint。如果 Python、PyTorch、
+CUDA/MPS 或模型运行环境不满足要求，命令会输出原因与 CPU 回退建议，不显示异常堆栈，并以
+退出码 `0` 结束而不启动 API。开发用的直接 `uvicorn` 命令保留原始错误，便于排查代码问题。
+
+Windows PowerShell 示例：
+
+```powershell
+$env:WINDLAYA_DEVICE = "cpu"
+uv run windlaya
+```
+
+macOS 示例：
+
+```bash
+WINDLAYA_DEVICE=mps uv run windlaya
+```
+
+不要增加多个 worker。默认 `device=auto` 且只把本地 Multilingual checkpoint 加载到内存；
+首次显式选择 English 或 typed-decisions 时，Laya Router 会从已校验的本地目录动态热加载。
+需要时可明确使用 CPU：
 
 ```bash
 WINDLAYA_DEVICE=cpu uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
@@ -190,14 +230,20 @@ curl -X POST "http://127.0.0.1:8000/v1/route" \
 
 ```bash
 docker build -t windlaya:0.1.0 .
+docker volume create windlaya-models
+docker run --rm \
+  -v windlaya-models:/models \
+  windlaya:0.1.0 \
+  windlaya-models download
 docker run --rm \
   -p 8000:8000 \
-  -v windlaya-hf-cache:/root/.cache/huggingface \
+  -v windlaya-models:/models \
   -e WINDLAYA_DEVICE=cpu \
   windlaya:0.1.0
 ```
 
-镜像构建不会下载 checkpoint；第一次容器启动时下载到挂载的 cache volume。
+镜像构建和 API 进程都不会下载 checkpoint。第一条容器命令是部署步骤，将校验后的制品写入
+挂载 volume；第二条命令只从该 volume 加载模型。
 
 ## 测试
 
@@ -225,13 +271,17 @@ uv run python scripts/benchmark.py --model multilingual --runs 20 --warmup 3
 
 | 环境变量 | 默认值 | 说明 |
 |---|---|---|
-| `WINDLAYA_HOST` | `127.0.0.1` | CLI 监听地址 |
+| `WINDLAYA_HOST` | `127.0.0.1` | `windlaya` CLI 监听地址 |
 | `WINDLAYA_PORT` | `8000` | CLI 端口 |
 | `WINDLAYA_DEVICE` | `auto` | `auto/cuda/cpu/mps` |
 | `WINDLAYA_PRELOAD_MODELS` | `multilingual` | 启动预加载列表，空值表示 lazy load |
 | `WINDLAYA_MAX_LOADED` | `2` | 最大常驻 checkpoint 数 |
 | `WINDLAYA_DEFAULT_MODEL` | `english` | 无法判断语言时的 English 或 Multilingual |
+| `WINDLAYA_MODEL_SOURCE` | `modelscope` | 部署下载主源；`local` 禁止下载，只允许 verify |
+| `WINDLAYA_MODEL_FALLBACK_SOURCE` | `huggingface` | 主源失败后的备选：`huggingface/none` |
+| `WINDLAYA_MODEL_ROOT` | `models` | 已校验 checkpoint 的本地根目录 |
 | `WINDLAYA_HF_TOKEN` | 空 | Hugging Face token，不写入日志 |
+| `WINDLAYA_MS_TOKEN` | 空 | ModelScope token，不写入日志 |
 | `WINDLAYA_LOG_LEVEL` | `INFO` | 日志级别 |
 | `WINDLAYA_RUN_MODEL_TESTS` | `false` | 是否启用真实集成测试 |
 | `WINDLAYA_SERIALIZE_INFERENCE` | `true` | 是否串行保护 Router 与推理 |
@@ -243,7 +293,8 @@ Laya/PyTorch 并发稳定且有收益后才应启用。
 
 - 不提供鉴权、限流、数据库、任务队列、批处理或分布式推理。
 - 默认单进程锁使一个 Router 上的推理串行执行。
-- 首次 checkpoint 下载和加载耗时不属于推理延迟。
+- checkpoint 必须在构建或部署阶段准备；运行时不会自动联网下载。
+- 本地 checkpoint 首次加载到内存的耗时不属于推理延迟。
 - Laya 候选项共享 `head_max_len` token budget；choice 超过 20 项时 WindLaya 记录 warning，
   但不会拒绝请求。几十或上百个选项可能显著降低准确率。
 - `laya-multilingual` 可直接处理中文，但未经业务校准，不应把 confidence 当作高风险动作的

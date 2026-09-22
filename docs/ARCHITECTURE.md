@@ -24,13 +24,24 @@ FastAPI 负责 HTTP、Request ID 和错误信封。`DecisionService` 负责稳�
 Multilingual。显式模型会先规范化别名，再直接传递给 Laya；它的优先级高于 `lang`。
 WindLaya 关闭 Laya 的自动 task detection，因此 typed-decisions 只能显式选择。
 
-`/v1/route` 只调用 `Router.route()`，不会加载 checkpoint。`/v1/predict` 先路由，再显式
-加载并检查 Agent 的实际设备，最后调用 `Router.predict()`。
+`/v1/route` 只调用 `Router.route()`，不会加载 checkpoint。`/v1/predict` 先路由，确认对应
+本地制品已经由部署流程校验，再显式加载并检查 Agent 的实际设备，最后调用 `Router.predict()`。
+
+## 模型制品
+
+`ModelArtifactProvider` 隔离远程 Hub 与 Laya。`windlaya-models download` 在构建或部署阶段
+默认从固定 ModelScope commit 下载必要文件，失败时回退到固定 Hugging Face commit，并按
+Hugging Face 来源的 SHA256 manifest 完整校验。校验成功的目录通过原子 rename 发布；运行时
+只检查 marker、文件存在性和大小，不执行网络请求或重复计算大文件哈希。
+
+`ModelManager` 将三个本地目录通过 `Router(models=...)` 注入 Laya。ModelScope/Hugging Face
+类型不会进入 API 或 service 层。`local` 来源可用 `windlaya-models verify --publish-marker`
+校验并接管人工准备的目录。
 
 ## 生命周期
 
 FastAPI lifespan 创建和启动进程级 `ModelManager`，关闭时调用 `Router.unload()`。
-默认只预加载 Multilingual。显式选择其他模型时由 Router 动态热加载；`max_loaded` 控制
+默认只从本地目录预加载 Multilingual。显式选择其他模型时由 Router 动态热加载；`max_loaded` 控制
 常驻 checkpoint 数量，超限后按 LRU 淘汰，且不得小于预加载模型数。每个 Uvicorn worker
 都有独立模型副本，所以 MVP 只支持单 worker。
 
