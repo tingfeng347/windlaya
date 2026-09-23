@@ -28,6 +28,10 @@ _Avoid_: 模型名称、语言模式
 模型模式为 auto 时，依据状态的语言选择 english 或 multilingual checkpoint 的行为；它不会自动选择 typed-decisions。
 _Avoid_: 自动推理、任务检测
 
+**路由预览（Route Preview）**:
+针对决策请求只确定已选模型和选择依据、但不执行模型推理的操作。
+_Avoid_: 试运行、预测
+
 **显式模型选择（Explicit Model Selection）**:
 调用者直接指定 english、multilingual 或 typed-decisions，并覆盖语言提示与自动路由结果的选择方式。
 _Avoid_: 强制路由
@@ -46,3 +50,15 @@ _Avoid_: 模型模式、Agent
 
 **noul**:
 返回命题为真的概率 `P(true)` 的二元决策原语。该名称沿用 Laya 上游契约，不展开或翻译。
+
+**WindLaya Playground**:
+面向业务体验者与开发者、用于构造并执行决策请求的交互式工作台，同时呈现易读结果与开发者细节。
+_Avoid_: 聊天页面、聊天机器人、API 浏览器
+
+**示例场景（Example Scenario）**:
+用于演示一组 WindLaya 能力的具名决策请求，用户可以载入后继续修改；场景只提供输入，不提供模拟结果。
+_Avoid_: Mock、固定结果、Prompt 模板
+
+**倾向结论（Directional Conclusion）**:
+根据概率给出的非确定性文字概括，必须与精确概率和置信度一同呈现。
+_Avoid_: 最终答案、确定结论

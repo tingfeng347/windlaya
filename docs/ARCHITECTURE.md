@@ -61,3 +61,10 @@ PyTorch 推理是阻塞计算，FastAPI 用同步 endpoint 在线程池执行。
 WindLaya 不透传未知 Laya 顶层字段。预测响应固定为 `request_id`、`model`、`routing`、
 `answers`、`usage` 和 `meta`。加载、不可用和推理错误分别映射为稳定错误码，原始异常只
 进入服务端日志。
+
+## Playground 边界
+
+`streamlit_app.py` 是独立的演示入口，只通过 HTTP 调用 FastAPI 的 `/health`、`/v1/models`、
+`/v1/route` 和 `/v1/predict`，不会导入 `DecisionService`、`ModelManager` 或 Laya。这样演示端
+不会绕过公共 API，也能在后端独立部署或不可用时显示明确的离线状态。Streamlit 依赖位于独立的
+`playground` 依赖组；会话历史只保存在浏览器会话的内存中，不写入模型或业务数据。

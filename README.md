@@ -88,9 +88,32 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 uv run windlaya
 ```
 
+## Playground 演示
+
+WindLaya Playground 是中文优先的结构化决策工作台，不是聊天页面。它通过 HTTP 调用已经
+启动的 FastAPI 服务，提供客服分流、内容审核和多语言路由示例；结果区会分别展示 `choice`、
+`score` 和 `noul` 的概率、置信度、路由信息、原始 JSON 以及可复制的 curl/Python 调用代码。
+
+先在一个终端启动 API，再在另一个终端启动 Playground：
+
+```bash
+uv run windlaya
+uv run --group playground streamlit run streamlit_app.py
+```
+
+也可以直接运行：
+
+```bash
+uv run --group playground streamlit run streamlit_app.py
+```
+
+默认 API 地址为 `http://127.0.0.1:8000`，可通过 `WINDLAYA_API_BASE_URL` 设置默认值，或在
+侧栏临时修改。Streamlit 的亮色和暗色主题都已配置；执行历史只保存在当前浏览器会话的最近
+10 条，不会落盘。
+
 监听地址和端口通过 `WINDLAYA_HOST`、`WINDLAYA_PORT` 设置。在 Windows 和 macOS 上应使用
 `uv run windlaya`：它会先检查 PyTorch 设备并预加载配置的 checkpoint。如果 Python、PyTorch、
-CUDA/MPS 或模型运行环境不满足要求，命令会输出原因与 CPU 回退建议，不显示异常堆栈，并以
+模型文件或运行环境不满足要求，命令会输出原因，不显示异常堆栈，并以
 退出码 `0` 结束而不启动 API。开发用的直接 `uvicorn` 命令保留原始错误，便于排查代码问题。
 
 Windows PowerShell 示例：
@@ -115,8 +138,9 @@ WINDLAYA_DEVICE=cpu uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 也可将 `WINDLAYA_PRELOAD_MODELS` 设为空实现完全 lazy load。默认 `max_loaded=2`，第三个
-checkpoint 热加载时按 LRU 淘汰较久未使用的模型。显式 CUDA/MPS 和自动选择出的设备都
-不会在 OOM 后静默退回 CPU；加载失败会直接报告，确保健康信息真实。
+checkpoint 热加载时按 LRU 淘汰较久未使用的模型。`auto` 优先使用 CUDA，其次使用 MPS；
+GPU 不可用或 Laya 加载模型时回退到 CPU 后，`/health` 会报告实际设备为 `cpu`。显式配置
+`cuda` 或 `mps` 时仍保持严格模式，设备不可用或发生回退会直接报告错误。
 
 OpenAPI 页面位于 `/docs` 和 `/redoc`。
 
@@ -273,7 +297,7 @@ uv run python scripts/benchmark.py --model multilingual --runs 20 --warmup 3
 |---|---|---|
 | `WINDLAYA_HOST` | `127.0.0.1` | `windlaya` CLI 监听地址 |
 | `WINDLAYA_PORT` | `8000` | CLI 端口 |
-| `WINDLAYA_DEVICE` | `auto` | `auto/cuda/cpu/mps` |
+| `WINDLAYA_DEVICE` | `auto` | `auto` 优先 GPU、失败回退 CPU；也可显式使用 `cuda/cpu/mps` |
 | `WINDLAYA_PRELOAD_MODELS` | `multilingual` | 启动预加载列表，空值表示 lazy load |
 | `WINDLAYA_MAX_LOADED` | `2` | 最大常驻 checkpoint 数 |
 | `WINDLAYA_DEFAULT_MODEL` | `english` | 无法判断语言时的 English 或 Multilingual |
