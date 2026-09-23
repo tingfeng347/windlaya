@@ -81,3 +81,20 @@ def test_manager_rejects_a_device_fallback_during_inference() -> None:
             {"refund": {"type": "noul", "instructions": "Refund?"}},
             model="english",
         )
+
+
+def test_auto_device_accepts_gpu_to_cpu_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.core.model_manager.resolve_device", lambda _: "cuda")
+    router = FakeRouter(device="cpu")
+    manager = ModelManager(
+        Settings(device="auto", _env_file=None),
+        router_factory=lambda **_: router,
+        artifact_provider=FakeArtifactProvider(),
+    )
+
+    manager.startup()
+
+    assert manager.device == "cpu"
+    assert manager.loaded_models == ["multilingual"]

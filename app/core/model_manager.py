@@ -1,5 +1,6 @@
 """Process-level ownership of the Laya Router and its checkpoints."""
 
+import logging
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager, nullcontext
 from threading import Lock
@@ -33,6 +34,8 @@ MODEL_CATALOG: tuple[dict[str, Any], ...] = (
         "specialized": True,
     },
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _laya_router_factory(**kwargs: Any) -> Any:
@@ -183,6 +186,16 @@ class ModelManager:
     def _verify_agent_device(self, name: str, agent: Any) -> None:
         actual = str(agent.device).split(":", maxsplit=1)[0]
         if actual != self.device:
+            if self.settings.device == "auto" and actual == "cpu":
+                logger.warning(
+                    "event=device_fallback model=%s preferred_device=%s "
+                    "actual_device=cpu message=%r",
+                    name,
+                    self.device,
+                    "GPU model loading failed; continuing on CPU",
+                )
+                self.device = "cpu"
+                return
             if self._router is not None:
                 self._router.unload(name)
             raise ModelLoadError(
