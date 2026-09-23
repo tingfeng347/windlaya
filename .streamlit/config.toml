@@ -1,0 +1,23 @@
+[server]
+headless = true
+
+[theme]
+base = "light"
+font = "sans-serif"
+baseRadius = "small"
+buttonRadius = "small"
+showWidgetBorder = true
+
+[theme.light]
+primaryColor = "#087E6A"
+backgroundColor = "#F7F8F5"
+secondaryBackgroundColor = "#ECEFEB"
+textColor = "#17211D"
+borderColor = "#D2D8D3"
+
+[theme.dark]
+primaryColor = "#4FD1B5"
+backgroundColor = "#111714"
+secondaryBackgroundColor = "#1B2420"
+textColor = "#EDF2EE"
+borderColor = "#34423B"

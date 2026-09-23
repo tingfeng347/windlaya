@@ -30,6 +30,10 @@ dev = [
     "pytest-cov>=5,<8",
     "ruff>=0.6,<1",
 ]
+playground = [
+    "httpx>=0.28,<1",
+    "streamlit>=1.54,<2",
+]
 
 [build-system]
 requires = ["uv_build>=0.12.3,<0.13.0"]
